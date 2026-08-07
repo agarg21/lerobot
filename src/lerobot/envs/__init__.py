@@ -19,6 +19,7 @@
 # require_package("gymnasium", extra="<update_extra>", import_name="gymnasium")
 
 from .configs import AlohaEnv, EnvConfig, HILSerlRobotEnvConfig, HubEnvConfig, PushtEnv
+from .envhub_inspection import EnvHubInspectionError, EnvHubProvenance, inspect_envhub_target
 from .factory import make_env, make_env_config, make_env_pre_post_processors
 from .utils import check_env_attributes_and_types, close_envs, env_to_policy_features, preprocess_observation
 
@@ -28,9 +29,12 @@ __all__ = [
     "HILSerlRobotEnvConfig",
     "HubEnvConfig",
     "PushtEnv",
+    "EnvHubInspectionError",
+    "EnvHubProvenance",
     "check_env_attributes_and_types",
     "close_envs",
     "env_to_policy_features",
+    "inspect_envhub_target",
     "make_env",
     "make_env_config",
     "make_env_pre_post_processors",
