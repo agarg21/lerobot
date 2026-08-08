@@ -45,7 +45,7 @@ available_extras: dict[str, list[str]] = {
         "lerobot-setup-motors",
     ],
     "core_scripts": ["lerobot-record", "lerobot-replay", "lerobot-teleoperate"],
-    "evaluation": ["lerobot-eval"],
+    "evaluation": ["lerobot-eval", "lerobot-eval-report"],
 }
 
 __all__ = ["__version__", "available_extras"]

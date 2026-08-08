@@ -1,0 +1,71 @@
+# Compare simulation evaluation runs
+
+`lerobot-eval-report` turns two `lerobot-eval` outputs into a reproducible baseline-versus-candidate
+comparison. It is intended for evaluating a post-trained policy against the policy it started from.
+
+The report pairs episodes by suite, task, and seed. It includes per-task results, a paired bootstrap
+confidence interval, the complete per-episode evidence, and SHA-256 hashes of both input artifacts and
+their protocol manifests. New `lerobot-eval` runs record environment, evaluation, seed, policy, and
+runtime configuration in `eval_manifest.json`; differing protocols cannot pass the comparison gate.
+Older outputs without episode seeds can still be compared by episode index, and the report records that
+weaker pairing mode. Older outputs without manifests are marked as protocol-unverified.
+
+## 1. Run both policies under the same protocol
+
+Use the same environment configuration, task set, episode count, and seed for both runs:
+
+```bash
+lerobot-eval \
+  --policy.path=path/to/baseline \
+  --env.type=libero \
+  --env.task=libero_spatial \
+  --eval.n_episodes=20 \
+  --seed=1000 \
+  --output_dir=outputs/eval/baseline
+
+lerobot-eval \
+  --policy.path=path/to/post-trained-candidate \
+  --env.type=libero \
+  --env.task=libero_spatial \
+  --eval.n_episodes=20 \
+  --seed=1000 \
+  --output_dir=outputs/eval/candidate
+```
+
+<Tip>
+  Treat the evaluation task set as held out. Reusing training tasks or selecting seeds after seeing
+  candidate results invalidates the comparison.
+</Tip>
+
+## 2. Build the evidence report
+
+```bash
+lerobot-eval-report \
+  --baseline=outputs/eval/baseline \
+  --candidate=outputs/eval/candidate \
+  --output-dir=outputs/eval/comparison \
+  --min-episodes=20 \
+  --minimum-improvement-pp=0 \
+  --maximum-regression-pp=0
+```
+
+This writes:
+
+- `comparison.md` — a concise decision report for a person to review.
+- `comparison.json` — the complete machine-readable result, including episode evidence and provenance.
+
+The decision is one of:
+
+| Decision | Meaning |
+| --- | --- |
+| `improved` | The lower confidence bound exceeds the configured minimum improvement. |
+| `regressed` | The upper confidence bound exceeds the configured allowed regression. |
+| `inconclusive` | There is not enough evidence to clear either gate. |
+| `not_comparable` | The two runs do not contain the same episode set. |
+
+## What this does not prove
+
+A simulation improvement is evidence about the selected simulator, tasks, perturbations, and policy
+interface. It is not proof of real-world improvement. A strong evaluation program should later add
+domain randomization, unseen task variants, latency and disturbance tests, and a smaller hardware
+validation set using the same report contract.
