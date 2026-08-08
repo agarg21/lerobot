@@ -33,6 +33,7 @@ LEROBOT_REVISION=$(git -C "$REPO_ROOT" rev-parse HEAD)
 RUN_ROOT="/tmp/pi0-post-train/$RUN_ID"
 OUTPUT_DIR="$RUN_ROOT/output"
 SELECTION_FILE="$RUN_ROOT/selection.json"
+DATASET_ROOT="$RUN_ROOT/dataset"
 
 # These 44 pinned episodes all have the target instruction. With eval_split=0.2,
 # LeRobot deterministically uses the first 35 for training and the final 9 for evaluation.
@@ -134,6 +135,13 @@ echo "Protocol: 35 train episodes, 9 held-out episodes, 500 expert-only steps"
 
 uv pip install -e "$REPO_ROOT[training,pi]"
 
+python "$REPO_ROOT/examples/libero/prepare_pi0_alphabet_soup_subset.py" \
+    --repo-id "$DATASET_ID" \
+    --revision "$DATASET_REVISION" \
+    --output-root "$DATASET_ROOT"
+
+cp "$DATASET_ROOT/subset_manifest.json" "$RUN_ROOT/dataset_subset_manifest.json"
+
 lerobot-train \
     --policy.path="$BASE_MODEL_ID" \
     --policy.pretrained_revision="$BASE_MODEL_REVISION" \
@@ -150,6 +158,7 @@ lerobot-train \
     --policy.scheduler_decay_steps=500 \
     --policy.scheduler_decay_lr=0.0000005 \
     --dataset.repo_id="$DATASET_ID" \
+    --dataset.root="$DATASET_ROOT" \
     --dataset.revision="$DATASET_REVISION" \
     --dataset.episodes="$TARGET_EPISODES" \
     --dataset.eval_split=0.2 \
