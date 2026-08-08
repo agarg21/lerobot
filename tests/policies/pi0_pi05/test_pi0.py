@@ -27,8 +27,21 @@ from lerobot.policies.pi0 import (  # noqa: E402
     PI0Policy,
     make_pi0_pre_post_processors,  # noqa: E402
 )
+from lerobot.policies.pi0.modeling_pi0 import _drop_legacy_normalization_keys  # noqa: E402
 from lerobot.utils.random_utils import set_seed  # noqa: E402
 from tests.utils import require_cuda, require_hf_token  # noqa: E402
+
+
+def test_drop_legacy_normalization_keys():
+    state_dict = {
+        "normalize_inputs.buffer_observation_state.mean": torch.tensor([1.0]),
+        "model.normalize_targets.buffer_action.std": torch.tensor([2.0]),
+        "paligemma_with_expert.gemma_expert.embed_tokens.weight": torch.tensor([3.0]),
+    }
+
+    filtered = _drop_legacy_normalization_keys(state_dict)
+
+    assert list(filtered) == ["paligemma_with_expert.gemma_expert.embed_tokens.weight"]
 
 
 @require_cuda

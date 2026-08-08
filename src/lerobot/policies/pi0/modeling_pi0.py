@@ -74,6 +74,27 @@ class ActionSelectKwargs(TypedDict, total=False):
     execution_horizon: int | None
 
 
+_LEGACY_NORMALIZATION_KEYS = frozenset(
+    {
+        "normalize_inputs.buffer_observation_state.mean",
+        "normalize_inputs.buffer_observation_state.std",
+        "normalize_targets.buffer_action.mean",
+        "normalize_targets.buffer_action.std",
+        "unnormalize_outputs.buffer_action.mean",
+        "unnormalize_outputs.buffer_action.std",
+    }
+)
+
+
+def _drop_legacy_normalization_keys(state_dict: dict[str, Tensor]) -> dict[str, Tensor]:
+    """Drop normalization tensors now owned by the policy processor pipelines."""
+    return {
+        key: value
+        for key, value in state_dict.items()
+        if key.removeprefix("model.") not in _LEGACY_NORMALIZATION_KEYS
+    }
+
+
 # Define the complete layer computation function for gradient checkpointing
 def compute_layer_complete(inputs_embeds, attention_mask, position_ids, adarms_cond, layers, rotary_emb):
     query_states = []
@@ -849,6 +870,14 @@ class PI0Policy(PreTrainedPolicy):
 
             # First, fix any key differences (see openpi model.py, _fix_pytorch_state_dict_keys)
             fixed_state_dict = model._fix_pytorch_state_dict_keys(original_state_dict, model.config)
+            state_dict_size = len(fixed_state_dict)
+            fixed_state_dict = _drop_legacy_normalization_keys(fixed_state_dict)
+            dropped_keys = state_dict_size - len(fixed_state_dict)
+            if dropped_keys:
+                print(
+                    f"Dropped {dropped_keys} legacy normalization tensors; "
+                    "normalization is loaded by the policy processor pipelines."
+                )
 
             # Then add "model." prefix for all keys that don't already have it
             remapped_state_dict = {}
