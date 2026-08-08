@@ -68,9 +68,11 @@ payload = {
     "checkpoint_steps": [100, 200, 300, 400, 500],
     "selection_rule": "minimum held-out demonstration loss",
     "train_expert_only": True,
+    "batch_size": 8,
     "learning_rate": 5e-6,
     "precision": "bfloat16",
     "compile_model": False,
+    "gradient_checkpointing": True,
     "lerobot_revision": os.environ["LEROBOT_REVISION"],
     "source_image": os.environ["SOURCE_IMAGE"],
     "hardware": "a100-large",
@@ -133,6 +135,8 @@ echo "Base policy: $BASE_MODEL_ID@$BASE_MODEL_REVISION"
 echo "Dataset: $DATASET_ID@$DATASET_REVISION"
 echo "Protocol: 35 train episodes, 9 held-out episodes, 500 expert-only steps"
 
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 uv pip install -e "$REPO_ROOT[training,pi]"
 
 python "$REPO_ROOT/examples/libero/prepare_pi0_alphabet_soup_subset.py" \
@@ -149,7 +153,7 @@ lerobot-train \
     --policy.dtype=bfloat16 \
     --policy.train_expert_only=true \
     --policy.compile_model=false \
-    --policy.gradient_checkpointing=false \
+    --policy.gradient_checkpointing=true \
     --policy.push_to_hub=false \
     --policy.repo_id="$MODEL_REPO" \
     --policy.private=true \
@@ -164,7 +168,7 @@ lerobot-train \
     --dataset.eval_split=0.2 \
     --dataset.video_backend=torchcodec \
     --steps=500 \
-    --batch_size=32 \
+    --batch_size=8 \
     --num_workers=4 \
     --log_freq=10 \
     --eval_steps=100 \
