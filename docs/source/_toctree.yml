@@ -109,6 +109,8 @@
 - sections:
   - local: adding_benchmarks
     title: Adding a New Benchmark
+  - local: simulation_evaluation_reports
+    title: Compare Evaluation Runs
   - local: libero
     title: LIBERO
   - local: libero_plus

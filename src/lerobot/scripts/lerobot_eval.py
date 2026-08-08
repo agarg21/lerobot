@@ -52,6 +52,8 @@ You can learn about the CLI options for this script in the `EvalPipelineConfig` 
 import concurrent.futures as cf
 import json
 import logging
+import platform
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -59,6 +61,7 @@ from collections.abc import Callable
 from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import asdict
+from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
 from pprint import pformat
@@ -72,6 +75,7 @@ from termcolor import colored
 from torch import Tensor, nn
 from tqdm import trange
 
+from lerobot.__version__ import __version__
 from lerobot.configs import FeatureType, parser
 from lerobot.configs.eval import EvalPipelineConfig
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -815,9 +819,38 @@ def eval_main(cfg: EvalPipelineConfig):
     # Close all vec envs
     close_envs(envs)
 
-    # Save info
-    with open(Path(cfg.output_dir) / "eval_info.json", "w") as f:
+    output_dir = Path(cfg.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save results and the protocol needed to compare this run reproducibly.
+    with open(output_dir / "eval_info.json", "w") as f:
         json.dump(info, f, indent=2)
+
+    configuration = asdict(cfg)
+    manifest = {
+        "schema_version": 1,
+        "created_at": datetime.now(UTC).isoformat(),
+        "protocol": {
+            "environment": configuration["env"],
+            "evaluation": configuration["eval"],
+            "seed": configuration["seed"],
+            "rename_map": configuration["rename_map"],
+            "trust_remote_code": configuration["trust_remote_code"],
+        },
+        "policy": configuration["policy"],
+        "run": {
+            "job_name": configuration["job_name"],
+            "output_dir": str(output_dir.resolve()),
+        },
+        "runtime": {
+            "lerobot_version": __version__,
+            "python_version": platform.python_version(),
+            "platform": platform.platform(),
+            "executable": sys.executable,
+        },
+    }
+    with open(output_dir / "eval_manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2, default=str)
 
     logging.info("End of eval")
 
@@ -827,6 +860,7 @@ class TaskMetrics(TypedDict):
     sum_rewards: list[float]
     max_rewards: list[float]
     successes: list[bool]
+    seeds: list[int | None]
     video_paths: list[str]
     predicted_video_paths: list[str]
 
@@ -879,6 +913,7 @@ def eval_one(
         sum_rewards=[ep["sum_reward"] for ep in per_episode],
         max_rewards=[ep["max_reward"] for ep in per_episode],
         successes=[ep["success"] for ep in per_episode],
+        seeds=[ep["seed"] for ep in per_episode],
         video_paths=task_result.get("video_paths", []),
         predicted_video_paths=task_result.get("predicted_video_paths", []),
     )
