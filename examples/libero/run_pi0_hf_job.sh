@@ -72,7 +72,7 @@ echo "LeRobot revision: $LEROBOT_REVISION"
 echo "Policy: lerobot/pi0_libero_base@$MODEL_REVISION"
 echo "Protocol: libero_object task 0, seed 1000, 2 episodes"
 
-python -m pip install -e "$REPO_ROOT[evaluation,pi,libero]"
+uv pip install -e "$REPO_ROOT[evaluation,pi,libero]"
 
 LIBERO_USER_DIR=$(python - <<'PY'
 from pathlib import Path
