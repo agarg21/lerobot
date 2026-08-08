@@ -17,12 +17,23 @@ import json
 from lerobot.eval_report import build_comparison_report, load_episodes, write_comparison_report
 
 
-def _write_eval(path, successes, *, seeds=True, task_group="libero_spatial", task_id=0, protocol=None):
+def _write_eval(
+    path,
+    successes,
+    *,
+    seeds=True,
+    task_group="libero_spatial",
+    task_id=0,
+    protocol=None,
+    video_paths=None,
+):
     metrics = {
         "successes": successes,
         "sum_rewards": [float(success) for success in successes],
         "max_rewards": [float(success) for success in successes],
-        "video_paths": [f"videos/episode_{index}.mp4" for index in range(min(2, len(successes)))],
+        "video_paths": video_paths
+        if video_paths is not None
+        else [f"videos/episode_{index}.mp4" for index in range(min(2, len(successes)))],
         "predicted_video_paths": [],
     }
     if seeds:
@@ -112,6 +123,18 @@ def test_legacy_single_task_schema_is_supported(tmp_path):
 
     assert episodes[0].task_group == "default"
     assert episodes[0].seed == 42
+
+
+def test_video_paths_are_made_relative_to_the_eval_artifact(tmp_path):
+    artifact = tmp_path / "baseline"
+    _write_eval(artifact, [True], video_paths=["old/output/prefix/eval_episode_0.mp4"])
+    video = artifact / "videos" / "libero_spatial_0" / "eval_episode_0.mp4"
+    video.parent.mkdir(parents=True)
+    video.touch()
+
+    _, episodes = load_episodes(artifact)
+
+    assert episodes[0].video_path == "videos/libero_spatial_0/eval_episode_0.mp4"
 
 
 def test_report_writer_emits_json_and_markdown(tmp_path):

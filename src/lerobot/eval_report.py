@@ -167,6 +167,34 @@ def _extract_legacy_episodes(payload: dict[str, Any]) -> list[EpisodeOutcome]:
     ]
 
 
+def _make_video_paths_portable(outcomes: list[EpisodeOutcome], eval_path: Path) -> list[EpisodeOutcome]:
+    portable: list[EpisodeOutcome] = []
+    for outcome in outcomes:
+        video_path = outcome.video_path
+        if video_path is not None:
+            candidate = Path(video_path)
+            resolved = candidate.resolve()
+            if resolved.is_relative_to(eval_path.parent):
+                video_path = str(resolved.relative_to(eval_path.parent))
+            elif not candidate.is_absolute():
+                matches = list((eval_path.parent / "videos").rglob(candidate.name))
+                if len(matches) == 1:
+                    video_path = str(matches[0].relative_to(eval_path.parent))
+        portable.append(
+            EpisodeOutcome(
+                task_group=outcome.task_group,
+                task_id=outcome.task_id,
+                episode_ix=outcome.episode_ix,
+                seed=outcome.seed,
+                success=outcome.success,
+                sum_reward=outcome.sum_reward,
+                max_reward=outcome.max_reward,
+                video_path=video_path,
+            )
+        )
+    return portable
+
+
 def load_episodes(path: str | Path) -> tuple[Path, list[EpisodeOutcome]]:
     """Load episode outcomes from current or legacy LeRobot evaluation output."""
     eval_path = resolve_eval_info(path)
@@ -181,7 +209,7 @@ def load_episodes(path: str | Path) -> tuple[Path, list[EpisodeOutcome]]:
         raise ValueError(f"Unsupported evaluation schema in {eval_path}")
     if not outcomes:
         raise ValueError(f"Evaluation artifact contains no episodes: {eval_path}")
-    return eval_path, outcomes
+    return eval_path, _make_video_paths_portable(outcomes, eval_path)
 
 
 def _group_episodes(outcomes: list[EpisodeOutcome]) -> dict[tuple[str, str], list[EpisodeOutcome]]:
@@ -378,7 +406,7 @@ def _decision(
         }
     return {
         "status": "inconclusive",
-        "reason": "The confidence interval crosses the configured improvement and regression gates.",
+        "reason": "The confidence interval does not clear the configured improvement or regression gate.",
     }
 
 
