@@ -6,6 +6,7 @@
 set -euo pipefail
 
 ARTIFACT_REPO=${ARTIFACT_REPO:?Set ARTIFACT_REPO to a private Hugging Face dataset repository.}
+MODEL_ID=${MODEL_ID:-lerobot/pi0_libero_base}
 MODEL_REVISION=${MODEL_REVISION:-1dc27a57cf4b54c6fb138ed80a97da150e812e76}
 RUN_ID=${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}
 SOURCE_IMAGE=${SOURCE_IMAGE:-unknown}
@@ -13,6 +14,10 @@ N_EPISODES=${N_EPISODES:-2}
 
 if [[ ! "$N_EPISODES" =~ ^[1-9][0-9]*$ ]] || (( N_EPISODES > 20 )); then
     echo "N_EPISODES must be an integer from 1 through 20." >&2
+    exit 2
+fi
+if [[ ! "$MODEL_ID" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
+    echo "MODEL_ID must use the form owner/repository." >&2
     exit 2
 fi
 
@@ -25,7 +30,7 @@ OUTPUT_DIR="$RUN_ROOT/eval"
 mkdir -p "$RUN_ROOT"
 exec > >(tee -a "$RUN_ROOT/job.log") 2>&1
 
-export ARTIFACT_REPO MODEL_REVISION RUN_ID SOURCE_IMAGE LEROBOT_REVISION RUN_ROOT N_EPISODES
+export ARTIFACT_REPO MODEL_ID MODEL_REVISION RUN_ID SOURCE_IMAGE LEROBOT_REVISION RUN_ROOT N_EPISODES
 
 write_status() {
     local exit_code=$1
@@ -41,7 +46,7 @@ payload = {
     "status": "completed" if os.environ["JOB_EXIT_CODE"] == "0" else "failed",
     "exit_code": int(os.environ["JOB_EXIT_CODE"]),
     "finished_at": datetime.now(UTC).isoformat(),
-    "policy": "lerobot/pi0_libero_base",
+    "policy": os.environ["MODEL_ID"],
     "policy_revision": os.environ["MODEL_REVISION"],
     "lerobot_revision": os.environ["LEROBOT_REVISION"],
     "source_image": os.environ["SOURCE_IMAGE"],
@@ -75,7 +80,7 @@ trap retain_artifacts EXIT
 
 echo "Run ID: $RUN_ID"
 echo "LeRobot revision: $LEROBOT_REVISION"
-echo "Policy: lerobot/pi0_libero_base@$MODEL_REVISION"
+echo "Policy: $MODEL_ID@$MODEL_REVISION"
 echo "Protocol: libero_object task 0, seed 1000, $N_EPISODES episodes"
 
 uv pip install -e "$REPO_ROOT[evaluation,pi,libero]"
@@ -130,7 +135,7 @@ PY
 export MUJOCO_GL=egl
 
 lerobot-eval \
-    --policy.path=lerobot/pi0_libero_base \
+    --policy.path="$MODEL_ID" \
     --policy.pretrained_revision="$MODEL_REVISION" \
     --policy.device=cuda \
     --env.type=libero \
